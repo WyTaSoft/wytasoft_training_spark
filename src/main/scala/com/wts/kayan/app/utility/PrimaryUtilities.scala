@@ -109,10 +109,9 @@ object PrimaryUtilities {
 
     val dataFrame: DataFrame = sparkSession.read
       .schema(schema)
-      .csv(s"$inputPath${tableName.toLowerCase}/")
+      .csv(s"$inputPath${tableName.toLowerCase}/${tableName.toLowerCase}.csv")
       .selectExpr(ColumnSelector.getColumnSequence(sourceName): _*)
       .where(effectiveCondition)
-
     dataFrame
   }
 

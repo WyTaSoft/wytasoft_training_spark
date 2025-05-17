@@ -19,8 +19,16 @@ RUN wget https://archive.apache.org/dist/spark/spark-$SPARK_VERSION/spark-$SPARK
 ENV SPARK_HOME=/opt/spark
 ENV PATH=$SPARK_HOME/bin:$PATH
 
+RUN mkdir -p /prd/project/datalake/clients /prd/project/datalake/orders
+COPY src/main/resources/data/clients.csv /prd/project/datalake/clients/clients.csv
+COPY src/main/resources/data/orders.csv /prd/project/datalake/orders/orders.csv
+
 # Copy the Spark application JAR file to the container
 COPY ./target/wtskayansparkall-1.0.0.jar /wytasoft_training_academy/my-spark-app.jar
+
+COPY install/run_spark.sh /wytasoft_training_academy/run_spark.sh
+RUN chmod +x /wytasoft_training_academy/run_spark.sh
+RUN sed -i 's/\r$//' /wytasoft_training_academy/run_spark.sh
 
 EXPOSE 4040 8080
 # Set the default command to run the Spark application
