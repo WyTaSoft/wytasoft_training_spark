@@ -85,8 +85,9 @@ object PrimaryUtilities {
   def readDataFrame(sourceName: String,
                     schema: StructType,
                     isCondition: Boolean = false,
-                    condition: Column = null)
-                   (implicit sparkSession: SparkSession, env: String, config: Config): DataFrame = {
+                    condition: Column = null,
+                    isLastPartition: Boolean = false)
+                   (implicit sparkSession: SparkSession, env: String): DataFrame = {
 
     log.info(s"\n**** Reading file to create DataFrame ****\n")
 
@@ -95,25 +96,35 @@ object PrimaryUtilities {
 
     var inputPath: String = ""
     var tableName = ""
+    var PartitionedValue = ""
 
     sourceName match {
       case PrimaryConstants.CLIENTS =>
-        inputPath = "/project/datalake/"
+        inputPath = "src/main/resources/data/"
         tableName = "clients"
       case PrimaryConstants.ORDERS =>
-        inputPath = "/project/datalake/"
+        inputPath = "src/main/resources/data/"
         tableName = "orders"
-        val PartitionedValue = getMaxPartition(s"$inputPath${tableName.toLowerCase}/")(sparkSession)
+        PartitionedValue = getMaxPartition(s"$inputPath${tableName.toLowerCase}/")(sparkSession)
         tableName = s"orders/date=$PartitionedValue"
     }
 
     log.info(s"\n Loading $sourceName from $inputPath${tableName.toLowerCase} ***\n")
 
+
+
     val dataFrame: DataFrame = sparkSession.read
       .schema(schema)
-      .parquet(s"$inputPath${tableName.toLowerCase}/")
+      .option("header", "true")       // treat first line as header
+      .option("delimiter", ",")       // use “;” as the field separator
+      .csv(s"$inputPath${tableName.toLowerCase}/")
       .selectExpr(ColumnSelector.getColumnSequence(sourceName): _*)
       .where(effectiveCondition)
+
+    if(isLastPartition) {
+      log.info(s"\n Loading with partition ***\n")
+      return dataFrame.withColumn("date", lit(PartitionedValue))
+    }
 
     dataFrame
   }
@@ -175,7 +186,7 @@ object PrimaryUtilities {
       .format("parquet")
       .partitionBy("location")
       .mode(mode)
-      .save(s"/$env/project/datalake/clients_orders")
+      .save(s"/src/main/resources/data/datalake/clients_orders/")
 
     log.info(s"\n *** Write Completed ... *** \n")
   }

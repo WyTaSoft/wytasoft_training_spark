@@ -1,5 +1,5 @@
 // Package declaration which organizes the code modules, similar to a folder structure.
-package com.wts.kayan.SessionManager
+package com.wts.kayan.sessionmanager
 
 // Importing SparkSession from Spark SQL library.
 import org.apache.spark.sql.SparkSession
@@ -27,16 +27,23 @@ object SparkSessionManager {
     // Builder pattern to construct a SparkSession with specific configurations.
     SparkSession
       .builder()
-      .appName(appName)  // Sets the name for the application in the Spark UI.
-      .config("spark.serializer", "org.apache.spark.serializer.KryoSerializer")  // Optimizes object serialization for better performance.
-      .config("spark.sql.tungsten.enabled", "true")  // Activates Project Tungsten for improved memory management and execution efficiency.
-      .config("spark.rdd.compress", "true")  // Enables compression of RDDs, reducing memory footprint.
-      .config("spark.io.compression.codec", "snappy")  // Applies Snappy compression to internal data transfers, enhancing IO efficiency.
-      .config("spark.sql.broadcastTimeout", 1200)  // Extends the timeout for broadcast operations to prevent failures in larger environments.
-      .config("spark.eventLog.enabled", "true")  // Enables detailed event logging, useful for debugging and performance tuning.
-      .enableHiveSupport()  // Integrates Hive support, enabling SQL-like manipulation of stored data.
-      .getOrCreate()  // Ensures a single instance of SparkSession per JVM, reusing the existing session or creating a new one as needed.
-
+      .appName(appName)                                         // Application name in Spark UI
+      .master("local[*]")                                       // Run locally on all cores
+      .config("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
+      .config("spark.sql.tungsten.enabled", "true")
+      .config("spark.rdd.compress", "true")
+      .config("spark.io.compression.codec", "snappy")
+      .config("spark.sql.broadcastTimeout", 1200)
+      .config("spark.sql.warehouse.dir",  "file:///tmp/spark-warehouse")
+      .config("hive.metastore.warehouse.dir", "file:///tmp/spark-warehouse")
+      .config("spark.driver.bindAddress", "0.0.0.0")  // listen on all interfaces
+      .config("spark.driver.host", "127.0.0.1")      // advertise localhost to the UI
+      .config("spark.ui.enabled", "true")           // (default) ensure UI is on
+      .config("spark.ui.port", "4040")              // pick a fixed port
+      .config("spark.eventLog.enabled", "true")
+      .config("spark.eventLog.dir","file:///tmp/spark-events")
+      .enableHiveSupport()                                      // Hive support with local warehouse
+      .getOrCreate()
     // The getOrCreate method is critical for managing resource efficiency and ensuring application stability.
   }
 

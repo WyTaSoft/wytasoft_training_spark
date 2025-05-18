@@ -21,15 +21,19 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
  *       optimizing resource usage and performance.
  * @see <a href="https://www.wytasoft.com/wytasoft-group/">Visit WyTaSoft for more on Mehdi's courses and training sessions.</a>
  */
-class PrimaryReader()(implicit sparkSession: SparkSession, env: String, config: Config ) extends SchemaSelector {
+class PrimaryReader()(implicit sparkSession: SparkSession, env: String) extends SchemaSelector {
 
   // Lazy initialization of DataFrame for clients using predefined schema from SchemaSelector.
   private lazy val clients: DataFrame =
     readDataFrame(PrimaryConstants.CLIENTS, clientsSchema)
 
+  clients.show()
+
   // Lazy initialization of DataFrame for orders using predefined schema from SchemaSelector.
   private lazy val orders: DataFrame =
-    readDataFrame(PrimaryConstants.ORDERS, ordersSchema)
+    readDataFrame(PrimaryConstants.ORDERS, ordersSchema, isLastPartition = true)
+
+  orders.show()
 
   /**
    * Retrieves the DataFrame based on a specified input string that identifies the dataset.

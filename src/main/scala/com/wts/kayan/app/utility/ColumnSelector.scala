@@ -30,17 +30,18 @@ object ColumnSelector {
 
       case PrimaryConstants.ORDERS =>
         Array(
-          "clientid",  // Unique identifier for the client.
-          "name",      // Name of the client.
-          "location"   // Geographical location of the client.
-        )
-
-      case PrimaryConstants.CLIENTS =>
-        Array(
           "orderid",  // Unique identifier for the order.
           "clientid", // Client identifier linking to the client's details.
           "amount",   // Monetary value of the order.
           "date"      // Date the order was placed.
+
+        )
+
+      case PrimaryConstants.CLIENTS =>
+        Array(
+          "clientid",  // Unique identifier for the client.
+          "name",      // Name of the client.
+          "location"   // Geographical location of the client.
         )
     }
   }

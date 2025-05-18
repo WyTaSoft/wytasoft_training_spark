@@ -23,6 +23,7 @@ object PrimaryConstants {
   val ORDERS = "orders"
 
   val MODE_APPEND = "Append"
+  val MODE_OVERWRITE = "Overwrite"
 
 
 }
