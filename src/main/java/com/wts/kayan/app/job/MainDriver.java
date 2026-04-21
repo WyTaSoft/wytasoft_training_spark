@@ -1,5 +1,6 @@
 package com.wts.kayan.app.job;
 
+import com.wts.kayan.app.common.PrimaryRunner;
 import com.wts.kayan.app.reader.PrimaryReader;
 import com.wts.kayan.app.utility.PrimaryConstants;
 import com.wts.kayan.sessionmanager.SparkSessionManager;
@@ -10,25 +11,25 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Entry point of the Java Spark training application — Unit 02.
+ * Entry point of the Java Spark training application — Unit 03.
  *
- * <p><strong>Learning objectives for ud02:</strong>
+ * <p><strong>Learning objectives for ud03:</strong>
  * <ol>
- *   <li>Understand how to define schemas as a reusable abstract class ({@code SchemaSelector})
- *       instead of inline — mirroring the Scala {@code trait} pattern.</li>
- *   <li>Introduce utility methods: {@code readDataFrame} and {@code getMaxPartition} in
- *       {@code PrimaryUtilities}.</li>
- *   <li>Separate column selection into a dedicated {@code ColumnSelector} class.</li>
- *   <li>Load <em>both</em> datasets — clients (full table) and orders (latest partition only).</li>
- *   <li>Expose datasets through a named accessor {@code getDataframe(String)} so the reader
- *       can be shared with future orchestrators ({@code PrimaryRunner} in ud03/ud04).</li>
+ *   <li>Introduce the <strong>orchestrator pattern</strong>: {@code PrimaryRunner} coordinates
+ *       the reader and the mapper so {@code MainDriver} stays focused on wiring and startup.</li>
+ *   <li>Understand <strong>Spark SQL temporary views</strong>: DataFrames are registered as
+ *       views ({@code createOrReplaceTempView}) so plain SQL can be run against them.</li>
+ *   <li>Use a <strong>BROADCAST join hint</strong> to optimise the client-order join when
+ *       the clients table is small enough to fit in executor memory.</li>
+ *   <li>Use a <strong>window function</strong> ({@code SUM OVER PARTITION BY clientId}) to
+ *       compute per-client totals without collapsing individual order rows.</li>
  * </ol>
  *
- * <p><strong>New program argument:</strong>
- * <ul>
- *   <li>{@code args[0]} — environment identifier (e.g. {@code "dev"}, {@code "test"},
- *       {@code "prod"}).</li>
- * </ul>
+ * <p><strong>Pipeline added in ud03:</strong>
+ * <pre>
+ *   PrimaryReader  ──►  PrimaryRunner  ──►  PrimaryMapper  ──►  enriched Dataset
+ *     (ud02)                (new)              (new)               shown here
+ * </pre>
  *
  * @author Mehdi TAJMOUATI
  * @see <a href="https://www.wytasoft.com/wytasoft-group/">WyTaSoft — courses and training sessions</a>
@@ -40,7 +41,7 @@ public class MainDriver {
     /**
      * Application entry point.
      *
-     * @param args Command-line arguments. {@code args[0]} must be the environment string.
+     * @param args {@code args[0]} — environment identifier (e.g. {@code "dev"}).
      */
     public static void main(String[] args) {
 
@@ -59,25 +60,29 @@ public class MainDriver {
         logger.info("\n\n****  training job has started ... ****\n\n");
 
         // -------------------------------------------------------------------
-        // Step 3 — Read source data (clients + orders latest partition)
+        // Step 3 — Build the pipeline and run it
         // -------------------------------------------------------------------
-        // PrimaryReader now extends SchemaSelector (ud02).
-        // Calling getDataframe() triggers lazy loading the first time.
+        // PrimaryReader (ud02) — loads clients and orders with schema + partition detection.
         PrimaryReader primaryReader = new PrimaryReader(sparkSession, env);
 
-        // Retrieve clients — full table.
-        Dataset<Row> clients = primaryReader.getDataframe(PrimaryConstants.CLIENTS);
-        logger.info("\n---- Clients schema ----");
-        clients.printSchema();
-
-        // Retrieve orders — most recent date partition only.
-        // PrimaryUtilities.getMaxPartition() scans the directory and picks the latest folder.
-        Dataset<Row> orders = primaryReader.getDataframe(PrimaryConstants.ORDERS);
-        logger.info("\n---- Orders schema ----");
-        orders.printSchema();
+        // PrimaryRunner (ud03) — orchestrates Reader → Mapper and returns the enriched Dataset.
+        // Internally it:
+        //   1. Calls primaryReader.getDataframe() to retrieve both source DataFrames.
+        //   2. Passes them to PrimaryMapper, which registers temp views and runs the SQL.
+        PrimaryRunner primaryRunner = new PrimaryRunner(primaryReader, sparkSession);
+        Dataset<Row> enriched = primaryRunner.runPrimaryRunner();
 
         // -------------------------------------------------------------------
-        // Step 4 — Stop the SparkSession
+        // Step 4 — Display results
+        // -------------------------------------------------------------------
+        logger.info("\n---- Enriched schema (clients LEFT JOIN orders + window total) ----");
+        enriched.printSchema();
+
+        // show() prints the first 20 rows — enough to verify the join and window column.
+        enriched.show();
+
+        // -------------------------------------------------------------------
+        // Step 5 — Stop the SparkSession
         // -------------------------------------------------------------------
         sparkSession.stop();
     }
