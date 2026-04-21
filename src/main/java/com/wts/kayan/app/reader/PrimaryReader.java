@@ -1,43 +1,55 @@
 package com.wts.kayan.app.reader;
 
 import com.wts.kayan.app.utility.PrimaryConstants;
+import com.wts.kayan.app.utility.PrimaryUtilities;
+import com.wts.kayan.app.utility.SchemaSelector;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
-import org.apache.spark.sql.types.DataTypes;
-import org.apache.spark.sql.types.StructField;
-import org.apache.spark.sql.types.StructType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
  * Responsible for loading source data into Spark {@link Dataset}s.
  *
- * <p>In this first unit (ud01) the reader handles the <strong>clients</strong> table only.
- * The schema is defined explicitly so Spark does not have to infer it by scanning the file,
- * which is both faster and safer in production pipelines.
+ * <p><strong>ud02 changes vs ud01:</strong>
+ * <ul>
+ *   <li>Extends {@link SchemaSelector} — schemas are no longer defined inline; they come
+ *       from the shared abstract base class just like the Scala version extended the
+ *       {@code SchemaSelector} trait.</li>
+ *   <li>Reads <em>both</em> {@code clients} and {@code orders} — orders are loaded from
+ *       the most recent date partition detected at runtime.</li>
+ *   <li>Delegates all I/O logic to {@link PrimaryUtilities#readDataFrame} — the reader
+ *       is now concerned only with <em>which</em> datasets to load, not <em>how</em>.</li>
+ *   <li>Exposes {@link #getDataframe(String)} so orchestrators (e.g. a future
+ *       {@code PrimaryRunner}) can retrieve datasets by name without knowing internals.</li>
+ * </ul>
  *
- * <p>Java equivalent of the Scala {@code PrimaryReader} class. Because Java lacks implicit
- * parameters, the SparkSession and the environment string are passed via the constructor.
+ * <p>Datasets are lazy-initialised: Spark only reads from disk when a downstream
+ * action ({@code show()}, {@code count()}, a join …) triggers evaluation.
+ * In Java we achieve this with {@code null}-guarded fields initialised on first access
+ * (the Java equivalent of Scala's {@code lazy val}).
  *
  * @author Mehdi TAJMOUATI
  * @see <a href="https://www.wytasoft.com/wytasoft-group/">WyTaSoft — courses and training sessions</a>
  */
-public class PrimaryReader {
+public class PrimaryReader extends SchemaSelector {
 
     private static final Logger log = LoggerFactory.getLogger(PrimaryReader.class);
 
-    // SparkSession is injected at construction time — no static access.
     private final SparkSession sparkSession;
-
-    // The environment tag (e.g. "dev", "test", "prod") used to resolve data paths.
     private final String env;
+
+    // Lazy backing fields — null until first access.
+    // In Scala these would be: private lazy val clients: DataFrame = ...
+    private Dataset<Row> clients;
+    private Dataset<Row> orders;
 
     /**
      * Constructs a PrimaryReader.
      *
-     * @param sparkSession Active Spark session.
-     * @param env          Runtime environment identifier.
+     * @param sparkSession Active Spark session — used by PrimaryUtilities for path resolution.
+     * @param env          Runtime environment identifier (e.g. {@code "dev"}).
      */
     public PrimaryReader(SparkSession sparkSession, String env) {
         this.sparkSession = sparkSession;
@@ -45,59 +57,76 @@ public class PrimaryReader {
     }
 
     // -------------------------------------------------------------------------
-    // Schema definitions
+    // Lazy-initialised dataset accessors
     // -------------------------------------------------------------------------
 
     /**
-     * Schema for the clients CSV file.
+     * Returns the clients {@link Dataset}, loading it from CSV on first call.
      *
-     * <p>Defining the schema explicitly is a best practice: it avoids the extra scan
-     * that Spark would otherwise do to infer types, and it documents the contract of
-     * the data source clearly inside the code.
-     *
-     * <ul>
-     *   <li>clientId  — integer primary key.</li>
-     *   <li>name      — full name of the client.</li>
-     *   <li>location  — city or region of the client.</li>
-     * </ul>
-     *
-     * @return {@link StructType} describing the clients table.
+     * <p>The schema comes from {@link SchemaSelector#clientsSchema()} — inherited from
+     * the parent abstract class. The actual I/O is delegated to
+     * {@link PrimaryUtilities#readDataFrame}.
      */
-    private StructType clientsSchema() {
-        // StructType is the Java/Spark equivalent of Scala's StructType in SchemaSelector.
-        return new StructType(new StructField[]{
-                // DataTypes.createStructField(name, dataType, nullable)
-                DataTypes.createStructField("clientId", DataTypes.IntegerType, true),
-                DataTypes.createStructField("name",     DataTypes.StringType,  true),
-                DataTypes.createStructField("location", DataTypes.StringType,  true)
-        });
+    private Dataset<Row> getClients() {
+        if (clients == null) {
+            // clientsSchema() is inherited from SchemaSelector.
+            clients = PrimaryUtilities.readDataFrame(
+                    PrimaryConstants.CLIENTS,
+                    clientsSchema(),   // Inherited schema definition.
+                    sparkSession,
+                    env
+            );
+            clients.show(); // Display for training — shows the loaded data immediately.
+        }
+        return clients;
+    }
+
+    /**
+     * Returns the orders {@link Dataset} from the most recent date partition, loading it
+     * on first call.
+     *
+     * <p>{@code isLastPartition = true} tells {@link PrimaryUtilities#readDataFrame} to
+     * call {@link com.wts.kayan.app.utility.PrimaryUtilities#getMaxPartition} to find the
+     * latest {@code date=} folder and attach the date value as a literal column.
+     */
+    private Dataset<Row> getOrders() {
+        if (orders == null) {
+            // ordersSchema() is inherited from SchemaSelector.
+            orders = PrimaryUtilities.readDataFrame(
+                    PrimaryConstants.ORDERS,
+                    ordersSchema(),    // Inherited schema definition.
+                    true,              // isLastPartition — load only the most recent date folder.
+                    sparkSession,
+                    env
+            );
+            orders.show(); // Display for training — shows the loaded data immediately.
+        }
+        return orders;
     }
 
     // -------------------------------------------------------------------------
-    // Public reader methods
+    // Public API
     // -------------------------------------------------------------------------
 
     /**
-     * Reads the clients CSV file and returns it as a typed {@link Dataset}.
+     * Retrieves a dataset by its logical name.
      *
-     * <p>Options used:
-     * <ul>
-     *   <li>{@code header=true}  — the first row of the CSV is treated as column names.</li>
-     *   <li>{@code delimiter=,} — fields are separated by commas (standard CSV).</li>
-     * </ul>
+     * <p>This method is the entry point for orchestrators such as {@code PrimaryRunner}
+     * that need datasets without caring about how they are loaded.
      *
-     * @return {@link Dataset}{@literal <}{@link Row}{@literal >} representing all clients.
+     * @param input Dataset identifier — {@link PrimaryConstants#CLIENTS} or
+     *              {@link PrimaryConstants#ORDERS} (case-insensitive).
+     * @return The requested {@link Dataset}{@literal <}{@link Row}{@literal >}.
+     * @throws IllegalArgumentException if {@code input} is not a recognised identifier.
      */
-    public Dataset<Row> readClients() {
-        log.info("\n**** Reading clients DataFrame ****\n");
-
-        // Relative path — works when the application is launched from the project root.
-        String inputPath = "src/main/resources/data/clients/";
-
-        return sparkSession.read()
-                .schema(clientsSchema())       // Apply the explicit schema — avoids inferSchema scan.
-                .option("header", "true")      // First line is the header row.
-                .option("delimiter", ",")      // Comma-separated values.
-                .csv(inputPath);               // Load all CSV files in the directory.
+    public Dataset<Row> getDataframe(String input) {
+        switch (input.toUpperCase()) {
+            case "CLIENTS": return getClients();
+            case "ORDERS":  return getOrders();
+            default:
+                throw new IllegalArgumentException(
+                        "Invalid input '" + input + "'. Expected 'CLIENTS' or 'ORDERS'."
+                );
+        }
     }
 }

@@ -10,22 +10,24 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Entry point of the Java Spark training application — Unit 01.
+ * Entry point of the Java Spark training application — Unit 02.
  *
- * <p><strong>Learning objectives for ud01:</strong>
+ * <p><strong>Learning objectives for ud02:</strong>
  * <ol>
- *   <li>Understand how to bootstrap a {@link SparkSession} in Java.</li>
- *   <li>Read a CSV file with an explicit schema.</li>
- *   <li>Display the resulting {@link Dataset} using {@code show()}.</li>
+ *   <li>Understand how to define schemas as a reusable abstract class ({@code SchemaSelector})
+ *       instead of inline — mirroring the Scala {@code trait} pattern.</li>
+ *   <li>Introduce utility methods: {@code readDataFrame} and {@code getMaxPartition} in
+ *       {@code PrimaryUtilities}.</li>
+ *   <li>Separate column selection into a dedicated {@code ColumnSelector} class.</li>
+ *   <li>Load <em>both</em> datasets — clients (full table) and orders (latest partition only).</li>
+ *   <li>Expose datasets through a named accessor {@code getDataframe(String)} so the reader
+ *       can be shared with future orchestrators ({@code PrimaryRunner} in ud03/ud04).</li>
  * </ol>
  *
- * <p>This is the Java equivalent of the Scala {@code MainDriver} object.
- * In Java there are no singleton objects: the entry point is a plain class
- * with a {@code public static void main(String[] args)} method.
- *
- * <p><strong>Expected program arguments:</strong>
+ * <p><strong>New program argument:</strong>
  * <ul>
- *   <li>{@code args[0]} — environment identifier (e.g. {@code "dev"}, {@code "test"}, {@code "prod"}).</li>
+ *   <li>{@code args[0]} — environment identifier (e.g. {@code "dev"}, {@code "test"},
+ *       {@code "prod"}).</li>
  * </ul>
  *
  * @author Mehdi TAJMOUATI
@@ -45,15 +47,11 @@ public class MainDriver {
         // -------------------------------------------------------------------
         // Step 1 — Parse program arguments
         // -------------------------------------------------------------------
-        // In Java there is no implicit parameter passing; we resolve the
-        // environment here and forward it explicitly to every collaborator.
         String env = args[0];
 
         // -------------------------------------------------------------------
         // Step 2 — Create the SparkSession
         // -------------------------------------------------------------------
-        // SparkSessionManager centralises all Spark configuration so that
-        // MainDriver stays focused on orchestration.
         SparkSession sparkSession = SparkSessionManager.fetchSparkSession(
                 PrimaryConstants.APPLICATION_NAME
         );
@@ -61,21 +59,26 @@ public class MainDriver {
         logger.info("\n\n****  training job has started ... ****\n\n");
 
         // -------------------------------------------------------------------
-        // Step 3 — Read source data
+        // Step 3 — Read source data (clients + orders latest partition)
         // -------------------------------------------------------------------
-        // PrimaryReader encapsulates the reading logic and the schema definition,
-        // keeping MainDriver free of low-level Spark API calls.
+        // PrimaryReader now extends SchemaSelector (ud02).
+        // Calling getDataframe() triggers lazy loading the first time.
         PrimaryReader primaryReader = new PrimaryReader(sparkSession, env);
 
-        Dataset<Row> clients = primaryReader.readClients();
+        // Retrieve clients — full table.
+        Dataset<Row> clients = primaryReader.getDataframe(PrimaryConstants.CLIENTS);
+        logger.info("\n---- Clients schema ----");
+        clients.printSchema();
 
-        // show() prints the first 20 rows to stdout — useful for local development.
-        clients.show();
+        // Retrieve orders — most recent date partition only.
+        // PrimaryUtilities.getMaxPartition() scans the directory and picks the latest folder.
+        Dataset<Row> orders = primaryReader.getDataframe(PrimaryConstants.ORDERS);
+        logger.info("\n---- Orders schema ----");
+        orders.printSchema();
 
         // -------------------------------------------------------------------
         // Step 4 — Stop the SparkSession
         // -------------------------------------------------------------------
-        // Always stop the session explicitly to release resources and flush logs.
         sparkSession.stop();
     }
 }
