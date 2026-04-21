@@ -3,6 +3,7 @@ package com.wts.kayan.app.job;
 import com.wts.kayan.app.common.PrimaryRunner;
 import com.wts.kayan.app.reader.PrimaryReader;
 import com.wts.kayan.app.utility.PrimaryConstants;
+import com.wts.kayan.app.writer.PrimaryWriter;
 import com.wts.kayan.sessionmanager.SparkSessionManager;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
@@ -11,24 +12,22 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Entry point of the Java Spark training application — Unit 03.
+ * Entry point of the Java Spark training application — Unit 04.
  *
- * <p><strong>Learning objectives for ud03:</strong>
+ * <p><strong>Learning objectives for ud04:</strong>
  * <ol>
- *   <li>Introduce the <strong>orchestrator pattern</strong>: {@code PrimaryRunner} coordinates
- *       the reader and the mapper so {@code MainDriver} stays focused on wiring and startup.</li>
- *   <li>Understand <strong>Spark SQL temporary views</strong>: DataFrames are registered as
- *       views ({@code createOrReplaceTempView}) so plain SQL can be run against them.</li>
- *   <li>Use a <strong>BROADCAST join hint</strong> to optimise the client-order join when
- *       the clients table is small enough to fit in executor memory.</li>
- *   <li>Use a <strong>window function</strong> ({@code SUM OVER PARTITION BY clientId}) to
- *       compute per-client totals without collapsing individual order rows.</li>
+ *   <li>Complete the <strong>full ETL pipeline</strong>: Extract → Transform → Load.</li>
+ *   <li>Introduce {@link PrimaryWriter} — the Load step that persists the enriched
+ *       Dataset to Parquet, partitioned by {@code location}.</li>
+ *   <li>Understand Spark write options: save mode ({@code overwrite} / {@code append}),
+ *       {@code coalesce} for controlling output file count, and {@code partitionBy} for
+ *       organising data on disk by a business key.</li>
  * </ol>
  *
- * <p><strong>Pipeline added in ud03:</strong>
+ * <p><strong>Complete pipeline — ud04:</strong>
  * <pre>
- *   PrimaryReader  ──►  PrimaryRunner  ──►  PrimaryMapper  ──►  enriched Dataset
- *     (ud02)                (new)              (new)               shown here
+ *   PrimaryReader  ──►  PrimaryRunner  ──►  PrimaryMapper  ──►  PrimaryWriter
+ *     (Extract)         (Orchestrate)        (Transform)            (Load)
  * </pre>
  *
  * @author Mehdi TAJMOUATI
@@ -60,29 +59,40 @@ public class MainDriver {
         logger.info("\n\n****  training job has started ... ****\n\n");
 
         // -------------------------------------------------------------------
-        // Step 3 — Build the pipeline and run it
+        // Step 3 — EXTRACT: load clients and orders from CSV
         // -------------------------------------------------------------------
-        // PrimaryReader (ud02) — loads clients and orders with schema + partition detection.
+        // PrimaryReader extends SchemaSelector (ud02):
+        //   - clientsSchema() / ordersSchema() define the column types.
+        //   - getDataframe() triggers lazy loading on first access.
+        //   - Orders are loaded from the most recent date= partition only.
         PrimaryReader primaryReader = new PrimaryReader(sparkSession, env);
 
-        // PrimaryRunner (ud03) — orchestrates Reader → Mapper and returns the enriched Dataset.
-        // Internally it:
-        //   1. Calls primaryReader.getDataframe() to retrieve both source DataFrames.
-        //   2. Passes them to PrimaryMapper, which registers temp views and runs the SQL.
-        PrimaryRunner primaryRunner = new PrimaryRunner(primaryReader, sparkSession);
-        Dataset<Row> enriched = primaryRunner.runPrimaryRunner();
-
         // -------------------------------------------------------------------
-        // Step 4 — Display results
+        // Step 4 — TRANSFORM: join + window function via SQL
         // -------------------------------------------------------------------
-        logger.info("\n---- Enriched schema (clients LEFT JOIN orders + window total) ----");
-        enriched.printSchema();
+        // PrimaryRunner (ud03) wires the reader to PrimaryMapper:
+        //   1. Fetches clients and orders DataFrames from PrimaryReader.
+        //   2. Registers them as Spark SQL temp views.
+        //   3. Executes the SQL in PrimaryView (BROADCAST join + SUM OVER PARTITION BY).
+        PrimaryRunner primaryRunner  = new PrimaryRunner(primaryReader, sparkSession);
+        Dataset<Row>  enriched       = primaryRunner.runPrimaryRunner();
 
-        // show() prints the first 20 rows — enough to verify the join and window column.
+        // Show the enriched result — useful for verifying the transformation in training.
         enriched.show();
 
         // -------------------------------------------------------------------
-        // Step 5 — Stop the SparkSession
+        // Step 5 — LOAD: persist the enriched Dataset to Parquet (ud04)
+        // -------------------------------------------------------------------
+        // PrimaryWriter delegates to PrimaryUtilities.writeDataFrame():
+        //   - coalesce(2)       — two output files (appropriate for small training data).
+        //   - format("parquet") — columnar storage, compressed by default.
+        //   - partitionBy("location") — organises output folders by client location.
+        //   - mode(overwrite)   — replaces any existing data at the output path.
+        PrimaryWriter primaryWriter = new PrimaryWriter();
+        primaryWriter.write(enriched, PrimaryConstants.MODE_OVERWRITE, 2, env);
+
+        // -------------------------------------------------------------------
+        // Step 6 — Stop the SparkSession
         // -------------------------------------------------------------------
         sparkSession.stop();
     }
