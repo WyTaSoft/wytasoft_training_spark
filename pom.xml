@@ -10,7 +10,7 @@
   <properties>
     <java.version>11</java.version>
     <maven-jar-plugin.version>3.2.0</maven-jar-plugin.version>
-    <maven-compiler-plugin.version>3.10.1</maven-compiler-plugin.version>
+    <maven-compiler-plugin.version>3.8.1</maven-compiler-plugin.version>
     <maven-assembly-plugin.version>3.4.2</maven-assembly-plugin.version>
     <spark.version>3.5.4</spark.version>
     <scala.dep.version>2.12</scala.dep.version>
@@ -32,6 +32,9 @@
     <netty.version>4.1.121.Final</netty.version>
     <ivy.version>2.5.2</ivy.version>
     <slf4j.version>2.0.16</slf4j.version>
+    <typesafe-config.version>1.4.3</typesafe-config.version>
+    <junit5.version>5.10.2</junit5.version>
+    <maven-surefire-plugin.version>2.22.2</maven-surefire-plugin.version>
 
     <pom.mainclass>com.wts.kayan.app.job.MainDriver</pom.mainclass>
     <jar-name>wts-training-spark-java</jar-name>
@@ -129,19 +132,6 @@
         <version>${commons-lang3.version}</version>
       </dependency>
 
-      <!-- Protobuf: CVE-2022-3509, CVE-2022-3510, CVE-2024-7254, CVE-2021-22569, CVE-2022-3171 -->
-      <dependency>
-        <groupId>com.google.protobuf</groupId>
-        <artifactId>protobuf-java</artifactId>
-        <version>${protobuf.version}</version>
-      </dependency>
-
-      <!-- Gson: CVE-2022-25647, WS-2021-0419 -->
-      <dependency>
-        <groupId>com.google.code.gson</groupId>
-        <artifactId>gson</artifactId>
-        <version>${gson.version}</version>
-      </dependency>
 
       <!-- Netty: CVE-2025-58057, CVE-2025-58056, CVE-2026-33870, CVE-2025-67735,
                   CVE-2023-44487, CVE-2025-55163, CVE-2026-33871, CVE-2024-29025 -->
@@ -331,22 +321,6 @@
       <scope>provided</scope>
     </dependency>
 
-    <!-- Protobuf: CVE-2022-3509, CVE-2022-3510, CVE-2024-7254, CVE-2021-22569, CVE-2022-3171 -->
-    <dependency>
-      <groupId>com.google.protobuf</groupId>
-      <artifactId>protobuf-java</artifactId>
-      <version>${protobuf.version}</version>
-      <scope>provided</scope>
-    </dependency>
-
-    <!-- Gson: CVE-2022-25647, WS-2021-0419 -->
-    <dependency>
-      <groupId>com.google.code.gson</groupId>
-      <artifactId>gson</artifactId>
-      <version>${gson.version}</version>
-      <scope>provided</scope>
-    </dependency>
-
     <!-- Netty: CVE-2025-58057, CVE-2025-58056, CVE-2026-33870, CVE-2025-67735,
                 CVE-2023-44487, CVE-2025-55163, CVE-2026-33871, CVE-2024-29025 -->
     <dependency>
@@ -420,11 +394,38 @@
       <scope>provided</scope>
     </dependency>
 
-    <!-- JUnit for tests -->
+    <!-- HOCON configuration (Typesafe Config) — compile scope: bundled in the app JAR -->
     <dependency>
-      <groupId>junit</groupId>
-      <artifactId>junit</artifactId>
-      <version>4.13.2</version>
+      <groupId>com.typesafe</groupId>
+      <artifactId>config</artifactId>
+      <version>${typesafe-config.version}</version>
+    </dependency>
+
+    <!-- Log4j2 SLF4J binding — bridges SLF4J calls to Log4j2 at runtime -->
+    <dependency>
+      <groupId>org.apache.logging.log4j</groupId>
+      <artifactId>log4j-slf4j2-impl</artifactId>
+      <version>${log4j.version}</version>
+      <scope>provided</scope>
+    </dependency>
+
+    <!-- JUnit 5 — replaces JUnit 4 for cleaner lifecycle and parameterised tests -->
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-api</artifactId>
+      <version>${junit5.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-engine</artifactId>
+      <version>${junit5.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-params</artifactId>
+      <version>${junit5.version}</version>
       <scope>test</scope>
     </dependency>
 
@@ -453,6 +454,22 @@
               <mainClass>${pom.mainclass}</mainClass>
             </manifest>
           </archive>
+        </configuration>
+      </plugin>
+
+      <!-- Surefire 3.x is required to discover and run JUnit 5 tests -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>${maven-surefire-plugin.version}</version>
+        <configuration>
+          <!-- Each test JVM gets enough heap for a local SparkSession -->
+          <argLine>-Xmx2g -XX:+UseG1GC</argLine>
+          <systemPropertyVariables>
+            <!-- Suppress Spark UI and event logging during tests -->
+            <spark.ui.enabled>false</spark.ui.enabled>
+            <spark.eventLog.enabled>false</spark.eventLog.enabled>
+          </systemPropertyVariables>
         </configuration>
       </plugin>
 

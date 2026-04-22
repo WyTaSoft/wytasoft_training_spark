@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Log4j2 configuration for the WyTaSoft Java Spark training application.
+
+  Key choices:
+  - PatternLayout with ISO-8601 timestamp, level, logger name (max 40 chars),
+    thread name, and the message — enough context to diagnose issues without
+    drowning in noise.
+  - Spark and Hadoop loggers are set to WARN so only their warnings and errors
+    appear; verbose INFO output from the framework is suppressed.
+  - Our application logger (com.wts) is set to INFO so all training log
+    statements are visible.
+  - A RollingFile appender is included and commented out — uncomment it on a
+    cluster where you want persistent log files.
+-->
+<Configuration status="WARN" monitorInterval="30">
+
+  <Appenders>
+
+    <!-- Console appender — writes to stdout, visible in the Spark driver log -->
+    <Console name="Console" target="SYSTEM_OUT">
+      <PatternLayout
+        pattern="%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%t] %logger{40} - %msg%n"/>
+    </Console>
+
+    <!--
+    <RollingFile name="RollingFile"
+                 fileName="logs/training-spark.log"
+                 filePattern="logs/training-spark-%d{yyyy-MM-dd}-%i.log.gz">
+      <PatternLayout
+        pattern="%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%t] %logger{40} - %msg%n"/>
+      <Policies>
+        <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+        <SizeBasedTriggeringPolicy size="100MB"/>
+      </Policies>
+      <DefaultRolloverStrategy max="10"/>
+    </RollingFile>
+    -->
+
+  </Appenders>
+
+  <Loggers>
+
+    <!-- Our application — full INFO visibility -->
+    <Logger name="com.wts" level="INFO" additivity="false">
+      <AppenderRef ref="Console"/>
+    </Logger>
+
+    <!-- Suppress verbose Spark framework logs -->
+    <Logger name="org.apache.spark" level="WARN" additivity="false">
+      <AppenderRef ref="Console"/>
+    </Logger>
+
+    <!-- Suppress verbose Hadoop logs -->
+    <Logger name="org.apache.hadoop" level="WARN" additivity="false">
+      <AppenderRef ref="Console"/>
+    </Logger>
+
+    <!-- Suppress Hive metastore chatter (present even without spark-hive
+         when Spark's internal catalog initialises) -->
+    <Logger name="org.apache.hive" level="WARN" additivity="false">
+      <AppenderRef ref="Console"/>
+    </Logger>
+
+    <!-- Suppress ZooKeeper connection logs during local runs -->
+    <Logger name="org.apache.zookeeper" level="ERROR" additivity="false">
+      <AppenderRef ref="Console"/>
+    </Logger>
+
+    <!-- Root logger — catches everything not matched above -->
+    <Root level="WARN">
+      <AppenderRef ref="Console"/>
+    </Root>
+
+  </Loggers>
+
+</Configuration>
