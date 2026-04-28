@@ -30,6 +30,10 @@ import org.slf4j.LoggerFactory;
  */
 public class MainDriver {
 
+    static {
+        System.setProperty("log4j2.configurationFile", "log4j2.xml");
+    }
+
     private static final Logger logger = LoggerFactory.getLogger(MainDriver.class);
 
     public static void main(String[] args) {
@@ -39,7 +43,7 @@ public class MainDriver {
         // -------------------------------------------------------------------
         // AppConfig wraps Typesafe ConfigFactory.load() and exposes typed
         // accessors. The env string selects the right path block in the HOCON file.
-        String    env       = args[0];
+        String    env       = (args.length > 0) ? args[0] : "dev";
         AppConfig appConfig = new AppConfig(env);
 
         // -------------------------------------------------------------------

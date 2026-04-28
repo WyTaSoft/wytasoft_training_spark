@@ -1,7 +1,8 @@
 // Package declaration — organizes the code into logical namespaces, similar to a folder structure.
 package com.wts.kayan.sessionmanager;
 
-// Importing SparkSession from the Spark SQL library.
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.core.config.Configurator;
 import org.apache.spark.sql.SparkSession;
 
 /**
@@ -43,8 +44,12 @@ public class SparkSessionManager {
      */
     public static SparkSession fetchSparkSession(String appName) {
 
+        // Silence Jetty and Hadoop BEFORE getOrCreate() — both start logging during UI init.
+        Configurator.setLevel("org.sparkproject.jetty", Level.ERROR);
+        Configurator.setLevel("org.apache.hadoop",       Level.ERROR);
+
         // Builder pattern: each .config() call sets one Spark property.
-        return SparkSession
+        SparkSession session = SparkSession
                 .builder()
                 .appName(appName)          // Shown in the Spark UI header.
                 .master("local[*]")        // Use all local CPU cores; replace with "yarn" or "spark://..." on a cluster.
@@ -57,6 +62,19 @@ public class SparkSessionManager {
                 .config("spark.driver.host", "127.0.0.1")         // Advertise localhost so the UI is reachable.
                 .config("spark.ui.enabled", "true")               // Enable the Spark Web UI.
                 .config("spark.ui.port", "4040")                  // Fixed port — open http://localhost:4040 to explore.
-                .getOrCreate(); // Returns the existing session if one exists, otherwise creates a new one.
+                // Use the FileSystem-based checkpoint manager — avoids FileContext failures on Windows.
+                .config("spark.sql.streaming.checkpointFileManagerClass",
+                        "org.apache.spark.sql.execution.streaming.FileSystemBasedCheckpointFileManager")
+                .getOrCreate();
+
+        // Suppress Spark internal DEBUG/INFO noise — only ERROR from the framework.
+        // setLogLevel covers Spark's own root logger; Configurator.setLevel covers any
+        // sub-package loggers that Spark's bundled log4j2-defaults may have overridden.
+        session.sparkContext().setLogLevel("ERROR");
+        Configurator.setLevel("org.apache.spark",        Level.ERROR);
+        Configurator.setLevel("org.apache.hadoop",       Level.ERROR);
+        Configurator.setLevel("org.sparkproject.jetty",  Level.ERROR);
+        Configurator.setLevel("org.apache.zookeeper",    Level.ERROR);
+        return session;
     }
 }

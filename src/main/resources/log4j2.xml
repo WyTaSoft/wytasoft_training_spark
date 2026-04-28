@@ -51,6 +51,16 @@
       <AppenderRef ref="Console"/>
     </Logger>
 
+    <!-- Spark Structured Streaming internals — ERROR only (suppresses trigger/watermark/batch DEBUG noise) -->
+    <Logger name="org.apache.spark.sql.execution.streaming" level="ERROR" additivity="false">
+      <AppenderRef ref="Console"/>
+    </Logger>
+
+    <!-- Jetty (Spark UI embedded server) — ERROR only (suppresses selector/socket DEBUG noise) -->
+    <Logger name="org.sparkproject.jetty" level="ERROR" additivity="false">
+      <AppenderRef ref="Console"/>
+    </Logger>
+
     <!-- Suppress verbose Hadoop logs -->
     <Logger name="org.apache.hadoop" level="WARN" additivity="false">
       <AppenderRef ref="Console"/>
