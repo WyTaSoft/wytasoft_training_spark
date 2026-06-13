@@ -6,3 +6,6 @@ hs_err_pid*
 /src/main/resources/data/datalake/clients_orders/
 /target/classes/data/
 /target/
+/src/main/main.iml
+/src/test/test.iml
+/.idea/
