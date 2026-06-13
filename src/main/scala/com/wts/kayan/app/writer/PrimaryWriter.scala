@@ -1,5 +1,6 @@
 package com.wts.kayan.app.writer
 
+import com.typesafe.config.Config
 import com.wts.kayan.app.utility.PrimaryUtilities
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.slf4j.LoggerFactory
@@ -23,15 +24,19 @@ class PrimaryWriter()(implicit env: String) {
    * This method uses `PrimaryUtilities.writeDataFrame` to perform the actual write operation.
    *
    * @param dataFrame The DataFrame to write to storage.
+   * @param datasetName The output dataset identifier (e.g. `PrimaryConstants.CLIENTS_ORDERS`),
+   *                    used to resolve the destination path from config.
    * @param mode The write mode (e.g., "overwrite", "append").
    * @param numPartition The number of partitions to use when writing the DataFrame.
    * @param env Implicit environment string for the write operation.
+   * @param config Implicit Config providing the configured output paths.
    */
   def write(dataFrame: DataFrame,
+            datasetName: String,
             mode: String,
-            numPartition: Int)(implicit env: String): Unit = {
+            numPartition: Int)(implicit env: String, config: Config): Unit = {
 
-    PrimaryUtilities.writeDataFrame(dataFrame, mode, numPartition)(env)
+    PrimaryUtilities.writeDataFrame(dataFrame, datasetName, mode, numPartition)(env, config)
 
   }
 

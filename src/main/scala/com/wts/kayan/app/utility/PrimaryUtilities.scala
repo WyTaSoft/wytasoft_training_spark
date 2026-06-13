@@ -87,43 +87,40 @@ object PrimaryUtilities {
                     isCondition: Boolean = false,
                     condition: Column = null,
                     isLastPartition: Boolean = false)
-                   (implicit sparkSession: SparkSession, env: String): DataFrame = {
+                   (implicit sparkSession: SparkSession, env: String, config: Config): DataFrame = {
 
     log.info(s"\n**** Reading file to create DataFrame ****\n")
 
     // Generate the effective condition
     val effectiveCondition: Column = if (isCondition) condition else lit(true)
 
-    var inputPath: String = ""
-    var tableName = ""
-    var PartitionedValue = ""
+    // Resolve the base input directory from configuration. The config key segment is the
+    // sourceName parameter: "clients" -> training_spark.inputs.clients.<env>,
+    // "orders" -> training_spark.inputs.orders.<env>.
+    val basePath: String = config.getString(s"training_spark.inputs.$sourceName.$env")
 
-    sourceName match {
-      case PrimaryConstants.CLIENTS =>
-        inputPath = "src/main/resources/data/"
-        tableName = "clients"
+    // For orders, read only the most recent date= partition found under the base path.
+    var partitionedValue = ""
+    val readPath: String = sourceName match {
       case PrimaryConstants.ORDERS =>
-        inputPath = "src/main/resources/data/"
-        tableName = "orders"
-        PartitionedValue = getMaxPartition(s"$inputPath${tableName.toLowerCase}/")(sparkSession)
-        tableName = s"orders/date=$PartitionedValue"
+        partitionedValue = getMaxPartition(basePath)(sparkSession)
+        s"${basePath}date=$partitionedValue/"
+      case _ => basePath
     }
 
-    log.info(s"\n Loading $sourceName from $inputPath${tableName.toLowerCase} ***\n")
-
-
+    log.info(s"\n Loading $sourceName ($env) from $readPath ***\n")
 
     val dataFrame: DataFrame = sparkSession.read
       .schema(schema)
       .option("header", "true")       // treat first line as header
-      .option("delimiter", ",")       // use “;” as the field separator
-      .csv(s"$inputPath${tableName.toLowerCase}/")
+      .option("delimiter", ",")       // field separator
+      .csv(readPath)
       .selectExpr(ColumnSelector.getColumnSequence(sourceName): _*)
       .where(effectiveCondition)
 
-    if(isLastPartition) {
+    if (isLastPartition) {
       log.info(s"\n Loading with partition ***\n")
-      return dataFrame.withColumn("date", lit(PartitionedValue))
+      return dataFrame.withColumn("date", lit(partitionedValue))
     }
 
     dataFrame
@@ -167,18 +164,27 @@ object PrimaryUtilities {
   }
 
   /**
-   * Writes a DataFrame to a specified path with a given mode and number of partitions.
+   * Writes a DataFrame to storage using a path resolved from configuration.
+   *
+   * The output path is read from `training_spark.outputs.<datasetName>.<env>`, keeping the
+   * destination configurable per dataset and per environment rather than hard-coded.
    *
    * @param dataFrame The DataFrame to write.
+   * @param datasetName The output dataset identifier (e.g. `PrimaryConstants.CLIENTS_ORDERS`),
+   *                    used together with `env` to resolve the destination path from config.
    * @param mode The save mode (e.g., "overwrite", "append").
    * @param numPartition The number of partitions to use when writing the DataFrame.
-   * @param env Implicit environment string for the write operation.
+   * @param env Implicit environment string used to resolve the output path.
+   * @param config Implicit Config providing the configured output paths.
    */
   def writeDataFrame(dataFrame: DataFrame,
+                     datasetName: String,
                      mode: String,
-                     numPartition: Int)(implicit env: String): Unit = {
+                     numPartition: Int)(implicit env: String, config: Config): Unit = {
 
-    log.info(s"\n *** Write started (mode: $mode, numPartition: $numPartition) ... ***\n")
+    val outputPath = config.getString(s"training_spark.outputs.$datasetName.$env")
+
+    log.info(s"\n *** Write started (dataset: $datasetName, env: $env, path: $outputPath, mode: $mode, numPartition: $numPartition) ... ***\n")
 
     dataFrame
       .coalesce(numPartition)
@@ -186,7 +192,7 @@ object PrimaryUtilities {
       .format("parquet")
       .partitionBy("location")
       .mode(mode)
-      .save(s"/src/main/resources/data/datalake/clients_orders/")
+      .save(outputPath)
 
     log.info(s"\n *** Write Completed ... *** \n")
   }

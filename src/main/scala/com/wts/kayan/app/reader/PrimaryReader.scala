@@ -21,7 +21,7 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
  *       optimizing resource usage and performance.
  * @see <a href="https://www.wytasoft.com/wytasoft-group/">Visit WyTaSoft for more on Mehdi's courses and training sessions.</a>
  */
-class PrimaryReader()(implicit sparkSession: SparkSession, env: String) extends SchemaSelector {
+class PrimaryReader()(implicit sparkSession: SparkSession, env: String, config: Config) extends SchemaSelector {
 
   // Lazy initialization of DataFrame for clients using predefined schema from SchemaSelector.
   private lazy val clients: DataFrame =
@@ -39,15 +39,17 @@ class PrimaryReader()(implicit sparkSession: SparkSession, env: String) extends 
    * Retrieves the DataFrame based on a specified input string that identifies the dataset.
    * This method simplifies fetching DataFrames for different datasets by using an identifier string.
    *
-   * @param input A string identifier for the dataset, expected values are "CLIENTS" or "ORDERS".
+   * @param input A case-insensitive dataset identifier, expected to match
+   *              `PrimaryConstants.CLIENTS` or `PrimaryConstants.ORDERS`.
    * @return DataFrame corresponding to the input identifier.
    * @throws IllegalArgumentException if the input does not match expected dataset identifiers.
    */
   def getDataframe(input: String): DataFrame = {
-    input.toUpperCase match {
-      case "CLIENTS" => clients
-      case "ORDERS" => orders
-      case _ => throw new IllegalArgumentException(s"Invalid input $input. Expected 'CLIENTS' or 'ORDERS'.")
+    input.toLowerCase match {
+      case PrimaryConstants.CLIENTS => clients
+      case PrimaryConstants.ORDERS => orders
+      case _ => throw new IllegalArgumentException(
+        s"Invalid input $input. Expected '${PrimaryConstants.CLIENTS}' or '${PrimaryConstants.ORDERS}'.")
     }
   }
 }

@@ -21,6 +21,8 @@ object PrimaryConstants {
   val CLIENTS = "clients"
   /** Dataset or table name for orders. Used for referring to the order data storage in queries. */
   val ORDERS = "orders"
+  /** Dataset name for the enriched clients-orders output. Used to resolve the output path from config. */
+  val CLIENTS_ORDERS = "clients_orders"
 
   val MODE_APPEND = "Append"
   val MODE_OVERWRITE = "Overwrite"

@@ -3,3 +3,5 @@
 /.idea/
 /target/
 /metastore_db/
+/logs/
+/localRun/data/clients_orders/

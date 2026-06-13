@@ -8,15 +8,15 @@
   <version>1.0.0</version>
 
   <properties>
-    <java.version>1.8</java.version>
-    <scala.version>2.11.12</scala.version>
+    <java.version>11</java.version>
+    <scala.version>2.12.18</scala.version>
     <maven-jar-plugin>2.6</maven-jar-plugin>
-    <maven-compiler-plugin>3.1</maven-compiler-plugin>
+    <maven-compiler-plugin>3.11.0</maven-compiler-plugin>
     <maven-release-plugin>2.5.3</maven-release-plugin>
-    <scala-maven-plugin>3.2.2</scala-maven-plugin>
-    <spark-version>2.4.0</spark-version>
-    <scala.dep.version>2.11</scala.dep.version>
-    <hadoop>2.7.3</hadoop>
+    <scala-maven-plugin>4.8.1</scala-maven-plugin>
+    <spark-version>3.5.4</spark-version>
+    <scala.dep.version>2.12</scala.dep.version>
+    <hadoop>3.3.4</hadoop>
     <pom.scala.mainclass>com.wts.kayan.app.job.MainDriver</pom.scala.mainclass>
     <maven-assembly-plugin.version>3.0</maven-assembly-plugin.version>
     <jar-name>wts-training-spark</jar-name>
@@ -78,40 +78,35 @@
     <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
-      <version>4.11</version>
+      <version>4.13.2</version>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.scalatest</groupId>
       <artifactId>scalatest_${scala.dep.version}</artifactId>
-      <version>2.2.2</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.specs2</groupId>
-      <artifactId>specs2_${scala.dep.version}</artifactId>
-      <version>2.3.12</version>
+      <version>3.2.18</version>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>com.holdenkarau</groupId>
       <artifactId>spark-testing-base_${scala.dep.version}</artifactId>
-      <version>2.2.0_0.7.2</version>
+      <version>3.5.3_2.0.1</version>
       <scope>test</scope>
     </dependency>
 
-    <!-- Dependency for the data logger -->
+    <!-- Dependency for the data logger. slf4j 2.x to match Spark 3.5's log4j-slf4j2 binding. -->
     <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-api</artifactId>
-      <version>1.7.25</version>
+      <version>2.0.7</version>
     </dependency>
 
-    <!-- Dependency for the avro-format -->
+    <!-- Built-in Spark Avro data source (replaces the legacy Databricks spark-avro). -->
     <dependency>
-      <groupId>com.databricks</groupId>
-      <artifactId>spark-avro_2.11</artifactId>
-      <version>3.2.0</version>
+      <groupId>org.apache.spark</groupId>
+      <artifactId>spark-avro_${scala.dep.version}</artifactId>
+      <version>${spark-version}</version>
+      <scope>provided</scope>
     </dependency>
     <!-- https://mvnrepository.com/artifact/org.apache.commons/commons-email -->
     <dependency>
@@ -141,13 +136,37 @@
 !-->
     <dependency>
       <groupId>com.github.pureconfig</groupId>
-      <artifactId>pureconfig_2.11</artifactId>
-      <version>0.12.2</version>
+      <artifactId>pureconfig_${scala.dep.version}</artifactId>
+      <version>0.17.6</version>
     </dependency>
 
   </dependencies>
 
   <build>
+    <!--
+      Keep runtime data (input CSVs, generated datalake output, and rolling logs) off the
+      build classpath. The application reads/writes these via filesystem paths under
+      src/main/resources/data, not from the classpath, so copying them into target/classes
+      is unnecessary and causes Windows file-lock errors when a process holds an open log file.
+      application.conf lives at the resources root and is still copied.
+    -->
+    <resources>
+      <resource>
+        <directory>src/main/resources</directory>
+        <excludes>
+          <exclude>data/**</exclude>
+        </excludes>
+      </resource>
+    </resources>
+    <testResources>
+      <testResource>
+        <directory>src/test/resources</directory>
+        <excludes>
+          <exclude>data/**</exclude>
+        </excludes>
+      </testResource>
+    </testResources>
+
     <plugins>
       <!-- Configure maven-compiler-plugin to use the desired Java version -->
       <plugin>
@@ -189,6 +208,37 @@
               <!-- Need to specify this explicitly, otherwise plugin won't be called when doing e.g. mvn compile -->
               <goal>compile</goal>
               <goal>testCompile</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!-- Disable the default surefire runner; ScalaTest suites are run by the scalatest plugin below. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <configuration>
+          <skipTests>true</skipTests>
+        </configuration>
+      </plugin>
+
+      <!-- Runs all ScalaTest suites under src/test/scala during the test phase. -->
+      <plugin>
+        <groupId>org.scalatest</groupId>
+        <artifactId>scalatest-maven-plugin</artifactId>
+        <version>1.0</version>
+        <configuration>
+          <reportsDirectory>${project.build.directory}/surefire-reports</reportsDirectory>
+          <junitxml>.</junitxml>
+          <filereports>WDF TestSuite.txt</filereports>
+          <!-- Spark on JDK 11/17 needs the JVM internals opened up (Tungsten/unsafe access). -->
+          <argLine>--add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.base/java.io=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.util.concurrent=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/sun.security.action=ALL-UNNAMED</argLine>
+        </configuration>
+        <executions>
+          <execution>
+            <id>test</id>
+            <goals>
+              <goal>test</goal>
             </goals>
           </execution>
         </executions>
