@@ -2,8 +2,9 @@
 
 ## Context
 
-You work on a data team. A colleague wrote a notebook that reads a large CSV dataset of
-e-commerce orders, then produces a small daily report (revenue per country for a single day).
+You work on a bank's data team. A colleague wrote a notebook that reads a large CSV dataset of
+banking transactions, then produces a small daily report (total transaction amount per country
+for a single day).
 
 The notebook **works**, but it is slow and expensive. Your task is to make the **read phase**
 efficient — that's where most of the time and cost is being spent.
@@ -12,9 +13,9 @@ The starter code is in [`starter_unoptimized.py`](./starter_unoptimized.py).
 
 ## What the job does
 
-1. Reads a CSV folder of orders.
-2. Filters to one order date and one set of countries.
-3. Aggregates total revenue per country.
+1. Reads a CSV folder of transactions.
+2. Filters to one transaction date and one set of countries.
+3. Aggregates total transaction amount per country.
 4. Displays the result.
 
 ## Your mission
@@ -62,7 +63,7 @@ columnar format Spark can prune columns and skip row groups using file statistic
 <details>
 <summary>Hint 3 — format & layout</summary>
 
-Convert the source to Parquet or Delta once, partitioned by `order_date`. Subsequent reads only
+Convert the source to Parquet or Delta once, partitioned by `transaction_date`. Subsequent reads only
 touch the relevant partition (partition pruning) and the relevant columns (column pruning).
 </details>
 

@@ -10,7 +10,7 @@
 # MAGIC 2. **Column pruning** — `select` only the columns used.
 # MAGIC 3. **Predicate pushdown / early filter** — filter before aggregating.
 # MAGIC 4. **Better format & layout** — convert once to Delta/Parquet partitioned by
-# MAGIC    `order_date`, so repeated reads benefit from partition + column pruning and file stats.
+# MAGIC    `transaction_date`, so repeated reads benefit from partition + column pruning and file stats.
 # MAGIC 5. **No debug actions** in the hot path (`count`/`limit`/`printSchema` each cost a job).
 
 # COMMAND ----------
@@ -19,8 +19,8 @@ from pyspark.sql import functions as F
 from pyspark.sql.types import (StructType, StructField, StringType, LongType,
                                IntegerType, DoubleType, DateType)
 
-RAW_CSV_PATH = "/tmp/training/uc01/orders_csv"
-DELTA_PATH = "/tmp/training/uc01/orders_delta"
+RAW_CSV_PATH = "/tmp/training/uc01/transactions_csv"
+DELTA_PATH = "/tmp/training/uc01/transactions_delta"
 
 # COMMAND ----------
 
@@ -32,15 +32,15 @@ DELTA_PATH = "/tmp/training/uc01/orders_delta"
 # COMMAND ----------
 
 schema = StructType([
-    StructField("order_id", LongType()),
-    StructField("order_date", DateType()),
+    StructField("transaction_id", LongType()),
+    StructField("transaction_date", DateType()),
     StructField("country", StringType()),
     StructField("customer_id", LongType()),
-    StructField("product_id", LongType()),
-    StructField("quantity", IntegerType()),
-    StructField("unit_price", DoubleType()),
+    StructField("account_id", LongType()),
     StructField("amount", DoubleType()),
-    StructField("payment_method", StringType()),
+    StructField("currency", StringType()),
+    StructField("transaction_type", StringType()),
+    StructField("channel", StringType()),
     StructField("status", StringType()),
 ])
 
@@ -48,18 +48,18 @@ report_csv = (spark.read
               .option("header", "true")
               .schema(schema)                       # no inference pass
               .csv(RAW_CSV_PATH)
-              .select("order_date", "country", "amount")   # column pruning
-              .filter(F.col("order_date") == "2024-01-15")  # early filter
+              .select("transaction_date", "country", "amount")   # column pruning
+              .filter(F.col("transaction_date") == "2024-01-15")  # early filter
               .filter(F.col("country").isin("FR", "DE", "ES"))
               .groupBy("country")
-              .agg(F.round(F.sum("amount"), 2).alias("total_revenue")))
+              .agg(F.round(F.sum("amount"), 2).alias("total_amount")))
 
 display(report_csv.orderBy("country"))
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Fix 4 — convert once to Delta partitioned by `order_date`
+# MAGIC ## Fix 4 — convert once to Delta partitioned by `transaction_date`
 # MAGIC
 # MAGIC Pay the conversion cost once; every later read is cheap. For repeated/daily reporting this
 # MAGIC is the big win: partition pruning means only one day's files are touched.
@@ -72,7 +72,7 @@ display(report_csv.orderBy("country"))
     .csv(RAW_CSV_PATH)
     .write
     .mode("overwrite")
-    .partitionBy("order_date")
+    .partitionBy("transaction_date")
     .format("delta")
     .save(DELTA_PATH))
 
@@ -87,11 +87,11 @@ display(report_csv.orderBy("country"))
 # COMMAND ----------
 
 report = (spark.read.format("delta").load(DELTA_PATH)
-          .filter(F.col("order_date") == "2024-01-15")   # partition pruning
+          .filter(F.col("transaction_date") == "2024-01-15")   # partition pruning
           .filter(F.col("country").isin("FR", "DE", "ES"))
-          .select("country", "amount")                    # column pruning
+          .select("country", "amount")                          # column pruning
           .groupBy("country")
-          .agg(F.round(F.sum("amount"), 2).alias("total_revenue")))
+          .agg(F.round(F.sum("amount"), 2).alias("total_amount")))
 
 display(report.orderBy("country"))
 

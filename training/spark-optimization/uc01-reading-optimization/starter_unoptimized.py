@@ -13,44 +13,48 @@
 # MAGIC %md
 # MAGIC ## 0. Generate a sample dataset (run once)
 # MAGIC
-# MAGIC This creates a large-ish CSV folder so the inefficiencies are visible.
-# MAGIC In a real session you can point at an existing dataset instead.
+# MAGIC This creates a large-ish CSV folder of **banking transactions** so the inefficiencies
+# MAGIC are visible. In a real session you can point at an existing dataset instead.
 
 # COMMAND ----------
 
 from pyspark.sql import functions as F
 
 # Where the raw CSV will live. Adjust if needed (DBFS path).
-RAW_CSV_PATH = "/tmp/training/uc01/orders_csv"
+RAW_CSV_PATH = "/tmp/training/uc01/transactions_csv"
 
 # ~20M rows. Increase rows if your cluster is large and you want the pain to be obvious.
 N_ROWS = 20_000_000
 
 countries = ["FR", "DE", "ES", "IT", "US", "UK", "MA", "NL", "BE", "PT"]
 
-orders = (
+transactions = (
     spark.range(0, N_ROWS)
-    .withColumn("order_id", F.col("id"))
-    # spread orders over 60 days
-    .withColumn("order_date", F.date_add(F.lit("2024-01-01"), (F.col("id") % 60).cast("int")))
+    .withColumn("transaction_id", F.col("id"))
+    # spread transactions over 60 days
+    .withColumn("transaction_date", F.date_add(F.lit("2024-01-01"), (F.col("id") % 60).cast("int")))
     .withColumn("country", F.element_at(F.array(*[F.lit(c) for c in countries]),
                                         (F.col("id") % len(countries) + 1).cast("int")))
     .withColumn("customer_id", (F.col("id") % 1_000_000).cast("long"))
-    .withColumn("product_id", (F.col("id") % 50_000).cast("long"))
-    .withColumn("quantity", (F.col("id") % 5 + 1).cast("int"))
-    .withColumn("unit_price", F.round(F.rand(seed=42) * 100 + 1, 2))
-    .withColumn("amount", F.round(F.col("quantity") * F.col("unit_price"), 2))
-    .withColumn("payment_method", F.element_at(
-        F.array(F.lit("card"), F.lit("paypal"), F.lit("transfer")),
+    .withColumn("account_id", (F.col("id") % 2_000_000).cast("long"))
+    .withColumn("amount", F.round(F.rand(seed=42) * 5000 + 1, 2))
+    .withColumn("currency", F.element_at(
+        F.array(F.lit("EUR"), F.lit("USD"), F.lit("GBP")),
         (F.col("id") % 3 + 1).cast("int")))
+    .withColumn("transaction_type", F.element_at(
+        F.array(F.lit("DEBIT"), F.lit("CREDIT"), F.lit("TRANSFER")),
+        (F.col("id") % 3 + 1).cast("int")))
+    .withColumn("channel", F.element_at(
+        F.array(F.lit("ATM"), F.lit("ONLINE"), F.lit("BRANCH"), F.lit("MOBILE")),
+        (F.col("id") % 4 + 1).cast("int")))
     .withColumn("status", F.element_at(
-        F.array(F.lit("PAID"), F.lit("PENDING"), F.lit("CANCELLED")),
+        F.array(F.lit("POSTED"), F.lit("PENDING"), F.lit("REVERSED")),
         (F.col("id") % 3 + 1).cast("int")))
     .drop("id")
 )
 
 # Write as plain CSV with header (row-based, no statistics, schema not stored).
-(orders.write
+(transactions.write
     .mode("overwrite")
     .option("header", "true")
     .csv(RAW_CSV_PATH))
@@ -62,7 +66,7 @@ print("Sample CSV written to", RAW_CSV_PATH)
 # MAGIC %md
 # MAGIC ## 1. The non-optimized report
 # MAGIC
-# MAGIC Goal: total revenue per country for **2024-01-15**, limited to FR / DE / ES.
+# MAGIC Goal: total transaction amount per country for **2024-01-15**, limited to FR / DE / ES.
 
 # COMMAND ----------
 
@@ -83,10 +87,10 @@ display(df.limit(5))
 
 # (!) Filtering happens late, and we never reduce the columns we read.
 report = (df
-          .filter(df["order_date"] == "2024-01-15")
+          .filter(df["transaction_date"] == "2024-01-15")
           .filter(df["country"].isin("FR", "DE", "ES"))
           .groupBy("country")
-          .agg(F.round(F.sum("amount"), 2).alias("total_revenue")))
+          .agg(F.round(F.sum("amount"), 2).alias("total_amount")))
 
 # COMMAND ----------
 
