@@ -15,6 +15,10 @@
 # MAGIC
 # MAGIC This creates a large-ish CSV folder of **banking transactions** so the inefficiencies
 # MAGIC are visible. In a real session you can point at an existing dataset instead.
+# MAGIC
+# MAGIC > ⚠️ **Always run this cell after pulling updates.** It overwrites the dataset. If you only
+# MAGIC > re-run the report against an old dataset, the `2024-01-15` / FR-DE-ES slice can be empty
+# MAGIC > (an earlier version of this generator produced correlated date/country values).
 
 # COMMAND ----------
 
@@ -62,6 +66,15 @@ transactions = (
     .mode("overwrite")
     .option("header", "true")
     .csv(RAW_CSV_PATH))
+
+# Sanity check: the report slice (2024-01-15, FR/DE/ES) must be non-empty.
+# If this prints 0, your dataset is stale — re-run THIS cell.
+sanity = (transactions
+          .filter(F.col("transaction_date") == "2024-01-15")
+          .filter(F.col("country").isin("FR", "DE", "ES"))
+          .count())
+print("Sanity check — rows in the report slice (2024-01-15, FR/DE/ES):", sanity)
+assert sanity > 0, "Report slice is empty — re-run this generation cell to refresh the data."
 
 print("Sample CSV written to", RAW_CSV_PATH)
 
