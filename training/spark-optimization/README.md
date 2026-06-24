@@ -18,11 +18,12 @@ Each use case follows the same pattern:
 
 ## Use cases
 
-| #    | Topic                          | Folder                          |
-|------|--------------------------------|---------------------------------|
-| UC01 | Reading data efficiently       | `uc01-reading-optimization/`    |
+| #    | Topic                          | Folder                              |
+|------|--------------------------------|-------------------------------------|
+| UC01 | Reading data efficiently       | `uc01-reading-optimization/`        |
+| UC02 | Joins & shuffles (Spark 3.5)   | `uc02-join-shuffle-optimization/`   |
 
-More to come (writing/partitioning, joins & shuffles, caching, skew, UDFs vs native, etc.).
+More to come (writing/partitioning, caching, skew, UDFs vs native, etc.).
 
 ## How to run the exercise
 
