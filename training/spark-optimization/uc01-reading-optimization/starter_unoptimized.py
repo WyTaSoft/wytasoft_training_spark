@@ -28,28 +28,32 @@ N_ROWS = 20_000_000
 
 countries = ["FR", "DE", "ES", "IT", "US", "UK", "MA", "NL", "BE", "PT"]
 
+# NOTE: categorical columns are drawn with rand() so they are INDEPENDENT of the date.
+# (Deriving both date and country from `id % N` correlates them: because the date period
+#  is a multiple of the number of countries, every row on a given day lands on the same
+#  country, which makes the FR/DE/ES filter return 0 rows.)
 transactions = (
     spark.range(0, N_ROWS)
     .withColumn("transaction_id", F.col("id"))
     # spread transactions over 60 days
     .withColumn("transaction_date", F.date_add(F.lit("2024-01-01"), (F.col("id") % 60).cast("int")))
     .withColumn("country", F.element_at(F.array(*[F.lit(c) for c in countries]),
-                                        (F.col("id") % len(countries) + 1).cast("int")))
+                                        (F.floor(F.rand(seed=1) * len(countries)) + 1).cast("int")))
     .withColumn("customer_id", (F.col("id") % 1_000_000).cast("long"))
     .withColumn("account_id", (F.col("id") % 2_000_000).cast("long"))
     .withColumn("amount", F.round(F.rand(seed=42) * 5000 + 1, 2))
     .withColumn("currency", F.element_at(
         F.array(F.lit("EUR"), F.lit("USD"), F.lit("GBP")),
-        (F.col("id") % 3 + 1).cast("int")))
+        (F.floor(F.rand(seed=2) * 3) + 1).cast("int")))
     .withColumn("transaction_type", F.element_at(
         F.array(F.lit("DEBIT"), F.lit("CREDIT"), F.lit("TRANSFER")),
-        (F.col("id") % 3 + 1).cast("int")))
+        (F.floor(F.rand(seed=3) * 3) + 1).cast("int")))
     .withColumn("channel", F.element_at(
         F.array(F.lit("ATM"), F.lit("ONLINE"), F.lit("BRANCH"), F.lit("MOBILE")),
-        (F.col("id") % 4 + 1).cast("int")))
+        (F.floor(F.rand(seed=4) * 4) + 1).cast("int")))
     .withColumn("status", F.element_at(
         F.array(F.lit("POSTED"), F.lit("PENDING"), F.lit("REVERSED")),
-        (F.col("id") % 3 + 1).cast("int")))
+        (F.floor(F.rand(seed=5) * 3) + 1).cast("int")))
     .drop("id")
 )
 
