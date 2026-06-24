@@ -1,5 +1,7 @@
 # Spark Optimization — Training Use Cases (PySpark / Databricks)
 
+> 🇫🇷 Version française : [`README.fr.md`](./README.fr.md)
+
 A series of hands-on use cases for a Spark optimization training session.
 
 Each use case follows the same pattern:
