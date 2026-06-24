@@ -1,5 +1,7 @@
 # UC01 — Reading Data Efficiently
 
+> 🇫🇷 Version française : [`README.fr.md`](./README.fr.md)
+
 ## Context
 
 You work on a bank's data team. A colleague wrote a notebook that reads a large CSV dataset of
