@@ -22,8 +22,9 @@ Chaque cas d'usage suit le même schéma :
 |------|------------------------------------|-------------------------------------|
 | UC01 | Lecture efficace des données       | `uc01-reading-optimization/`        |
 | UC02 | Jointures & shuffles (Spark 3.5)   | `uc02-join-shuffle-optimization/`   |
+| UC03 | Mise en cache & calcul répété      | `uc03-caching-repeated-computation/`|
 
-À venir (écriture/partitionnement, mise en cache, skew, UDF vs natif, etc.).
+À venir (écriture/partitionnement, skew, UDF vs natif, etc.).
 
 ## Déroulé de l'exercice
 
