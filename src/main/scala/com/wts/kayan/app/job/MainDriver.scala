@@ -37,7 +37,7 @@ object MainDriver {
         if (!configFile.exists()) {
           throw new IllegalArgumentException(
             s"Config file not found: ${configFile.getAbsolutePath} " +
-              s"(JVM working directory: ${new File(".").getAbsolutePath}). " +
+              s"(JVM working directory ${new File(".").getAbsolutePath}). " +
               s"Pass a path relative to the working directory, or an absolute path.")
         }
         logger.info(s"\n**** Loading external configuration from ${configFile.getAbsolutePath} ****\n")
