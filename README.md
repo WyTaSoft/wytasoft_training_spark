@@ -128,9 +128,9 @@ For branches without Docker integration:
 
 ```bash
 spark-submit \
-    --class com.example.job.MainApp \
+    --class com.wts.kayan.app.job.MainDriver \
     --master local[*] \
-    target/training_spark.jar
+    target/wts-training-spark.jar
 ```
 
 ### **Dockerized Execution**
