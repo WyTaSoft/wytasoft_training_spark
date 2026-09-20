@@ -92,8 +92,8 @@ root_project/
 1. **Clone the repository**:
 
    ```bash
-   git clone https://github.com/WyTaSoft/training_spark.git
-   cd training_spark
+   git clone https://github.com/WyTaSoft-Academy/scala-spark-etl-training.git
+   cd scala-spark-etl-training
    ```
 
 2. **Checkout the desired branch**:
