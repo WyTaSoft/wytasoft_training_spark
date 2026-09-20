@@ -219,8 +219,8 @@ Coverage on this branch:
 ## **Setup and Installation**
 
 ```bash
-git clone https://github.com/WyTaSoft/training_spark.git
-cd training_spark
+git clone https://github.com/WyTaSoft-Academy/scala-spark-etl-training.git
+cd scala-spark-etl-training
 git checkout features/UC_Java_Enhancement_Config_Log4j2_UnitTest
 
 mvn clean package
