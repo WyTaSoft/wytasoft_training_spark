@@ -2,191 +2,136 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.wts.kayan</groupId>
   <artifactId>wtskayansparkall</artifactId>
   <version>1.0.0</version>
+  <packaging>jar</packaging>
 
+  <!-- ============================ -->
+  <!--         PROPERTIES           -->
+  <!-- ============================ -->
   <properties>
     <java.version>1.8</java.version>
-    <scala.version>2.11.12</scala.version>
-    <maven-jar-plugin>2.6</maven-jar-plugin>
-    <maven-compiler-plugin>3.1</maven-compiler-plugin>
-    <maven-release-plugin>2.5.3</maven-release-plugin>
-    <scala-maven-plugin>3.2.2</scala-maven-plugin>
-    <spark-version>2.4.0</spark-version>
-    <scala.dep.version>2.11</scala.dep.version>
-    <hadoop>2.7.3</hadoop>
-    <pom.scala.mainclass>com.wts.kayan.app.job.MainDriver</pom.scala.mainclass>
-    <maven-assembly-plugin.version>3.0</maven-assembly-plugin.version>
-    <jar-name>wts-training-spark</jar-name>
+
+    <!-- Spark 3.5 requires Scala 2.12 -->
+    <scala.version>2.12.18</scala.version>
+    <scala.binary>2.12</scala.binary>
+
+    <spark.version>3.5.0</spark.version>
+    <hadoop.version>3.3.4</hadoop.version>
+
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <mainClass>com.wts.kayan.app.job.MainDriver</mainClass>
   </properties>
 
-
+  <!-- ============================ -->
+  <!--         DEPENDENCIES         -->
+  <!-- ============================ -->
   <dependencies>
-    <!-- scala-maven-plugin determines the Scala version to use from this dependency -->
+
+    <!-- Scala -->
     <dependency>
       <groupId>org.scala-lang</groupId>
       <artifactId>scala-library</artifactId>
       <version>${scala.version}</version>
     </dependency>
+
+    <!-- Spark Core -->
     <dependency>
       <groupId>org.apache.spark</groupId>
-      <artifactId>spark-core_${scala.dep.version}</artifactId>
-      <version>${spark-version}</version>
+      <artifactId>spark-core_${scala.binary}</artifactId>
+      <version>${spark.version}</version>
       <scope>provided</scope>
     </dependency>
-    <!-- https://mvnrepository.com/artifact/org.apache.spark/spark-hive -->
+
+    <!-- Spark SQL -->
     <dependency>
       <groupId>org.apache.spark</groupId>
-      <artifactId>spark-hive_${scala.dep.version}</artifactId>
-      <version>${spark-version}</version>
+      <artifactId>spark-sql_${scala.binary}</artifactId>
+      <version>${spark.version}</version>
       <scope>provided</scope>
     </dependency>
+
+    <!-- Spark Hive (optional) -->
     <dependency>
       <groupId>org.apache.spark</groupId>
-      <artifactId>spark-sql_${scala.dep.version}</artifactId>
-      <version>${spark-version}</version>
+      <artifactId>spark-hive_${scala.binary}</artifactId>
+      <version>${spark.version}</version>
+      <scope>provided</scope>
+    </dependency>
+
+    <!-- Avro (DBR/Spark recommends using this module) -->
+    <dependency>
+      <groupId>org.apache.spark</groupId>
+      <artifactId>spark-avro_${scala.binary}</artifactId>
+      <version>${spark.version}</version>
+    </dependency>
+
+    <!-- Hadoop (HDFS + common) -->
+    <dependency>
+      <groupId>org.apache.hadoop</groupId>
+      <artifactId>hadoop-common</artifactId>
+      <version>${hadoop.version}</version>
       <scope>provided</scope>
     </dependency>
 
     <dependency>
       <groupId>org.apache.hadoop</groupId>
       <artifactId>hadoop-hdfs</artifactId>
-      <version>${hadoop}</version>
+      <version>${hadoop.version}</version>
       <scope>provided</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.hadoop</groupId>
-      <artifactId>hadoop-common</artifactId>
-      <version>${hadoop}</version>
-      <scope>provided</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.scalaj</groupId>
-      <artifactId>scalaj-http_2.12</artifactId>
-      <version>2.4.1</version>
     </dependency>
 
-    <!-- https://mvnrepository.com/artifact/com.typesafe/config -->
+    <!-- Typesafe config -->
     <dependency>
       <groupId>com.typesafe</groupId>
       <artifactId>config</artifactId>
-      <version>1.3.2</version>
-    </dependency>
-    <dependency>
-      <groupId>junit</groupId>
-      <artifactId>junit</artifactId>
-      <version>4.11</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.scalatest</groupId>
-      <artifactId>scalatest_${scala.dep.version}</artifactId>
-      <version>2.2.2</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.specs2</groupId>
-      <artifactId>specs2_${scala.dep.version}</artifactId>
-      <version>2.3.12</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>com.holdenkarau</groupId>
-      <artifactId>spark-testing-base_${scala.dep.version}</artifactId>
-      <version>2.2.0_0.7.2</version>
-      <scope>test</scope>
+      <version>1.4.2</version>
     </dependency>
 
-    <!-- Dependency for the data logger -->
+    <!-- Logging -->
     <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-api</artifactId>
-      <version>1.7.25</version>
+      <version>2.0.9</version>
     </dependency>
 
-    <!-- Dependency for the avro-format -->
+    <!-- ============== TESTING ============== -->
+
+    <!-- ScalaTest -->
     <dependency>
-      <groupId>com.databricks</groupId>
-      <artifactId>spark-avro_2.11</artifactId>
-      <version>3.2.0</version>
-    </dependency>
-    <!-- https://mvnrepository.com/artifact/org.apache.commons/commons-email -->
-    <dependency>
-      <groupId>org.apache.commons</groupId>
-      <artifactId>commons-email</artifactId>
-      <version>1.5</version>
+      <groupId>org.scalatest</groupId>
+      <artifactId>scalatest_${scala.binary}</artifactId>
+      <version>3.2.17</version>
+      <scope>test</scope>
     </dependency>
 
-    <!--
+    <!-- Spark Testing Base (last version, compatible with Spark 3.5) -->
     <dependency>
-      <groupId>com.microsoft.sqlserver</groupId>
-      <artifactId>mssql-jdbc</artifactId>
-      <version>7.4.1.jre8</version>
-    </dependency>
-
-    <dependency>
-      <groupId>com.microsoft.azure</groupId>
-      <artifactId>azure-sqldb-spark</artifactId>
-      <version>1.0.2</version>
-    </dependency>
-
-    <dependency>
-      <groupId>com.bettercloud</groupId>
-      <artifactId>vault-java-driver</artifactId>
-      <version>5.1.0</version>
-    </dependency>
-!-->
-    <dependency>
-      <groupId>com.github.pureconfig</groupId>
-      <artifactId>pureconfig_2.11</artifactId>
-      <version>0.12.2</version>
+      <groupId>com.holdenkarau</groupId>
+      <artifactId>spark-testing-base_${scala.binary}</artifactId>
+      <version>3.4.0_1.5.3</version>
+      <scope>test</scope>
     </dependency>
 
   </dependencies>
 
+  <!-- ============================ -->
+  <!--           BUILD              -->
+  <!-- ============================ -->
   <build>
     <plugins>
-      <!-- Configure maven-compiler-plugin to use the desired Java version -->
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-compiler-plugin</artifactId>
-        <version>${maven-compiler-plugin}</version>
-        <configuration>
-          <source>${java.version}</source>
-          <target>${java.version}</target>
-        </configuration>
-      </plugin>
 
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-release-plugin</artifactId>
-        <version>${maven-release-plugin}</version>
-      </plugin>
-
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-jar-plugin</artifactId>
-        <version>${maven-jar-plugin}</version>
-        <configuration>
-          <archive>
-            <manifest>
-              <mainClass>${pom.scala.mainclass}</mainClass>
-            </manifest>
-          </archive>
-        </configuration>
-      </plugin>
-
+      <!-- Scala compiler -->
       <plugin>
         <groupId>net.alchim31.maven</groupId>
         <artifactId>scala-maven-plugin</artifactId>
-        <version>${scala-maven-plugin}</version>
+        <version>4.8.1</version>
         <executions>
           <execution>
             <goals>
-              <!-- Need to specify this explicitly, otherwise plugin won't be called when doing e.g. mvn compile -->
               <goal>compile</goal>
               <goal>testCompile</goal>
             </goals>
@@ -194,23 +139,32 @@
         </executions>
       </plugin>
 
+      <!-- Java compiler -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.11.0</version>
+        <configuration>
+          <source>${java.version}</source>
+          <target>${java.version}</target>
+        </configuration>
+      </plugin>
+
+      <!-- JAR with dependencies (fat JAR) -->
       <plugin>
         <artifactId>maven-assembly-plugin</artifactId>
-        <version>2.5.4</version>
+        <version>3.5.0</version>
         <configuration>
           <archive>
             <manifest>
-              <mainClass>${pom.scala.mainclass}</mainClass>
+              <mainClass>${mainClass}</mainClass>
             </manifest>
           </archive>
-          <finalName>${jar-name}</finalName>
-          <appendAssemblyId>false</appendAssemblyId>
-          <descriptors>
-            <descriptor>assembly/assembly.xml</descriptor>
-          </descriptors>
           <descriptorRefs>
             <descriptorRef>jar-with-dependencies</descriptorRef>
           </descriptorRefs>
+          <appendAssemblyId>false</appendAssemblyId>
+          <finalName>wts-training-spark</finalName>
         </configuration>
         <executions>
           <execution>
@@ -222,6 +176,8 @@
           </execution>
         </executions>
       </plugin>
+
     </plugins>
   </build>
+
 </project>
